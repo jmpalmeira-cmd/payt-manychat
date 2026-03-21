@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "functions": {
+    "api/carrinho.js": { "runtime": "nodejs20.x" },
+    "api/pix.js": { "runtime": "nodejs20.x" },
+    "api/expirado.js": { "runtime": "nodejs20.x" },
+    "api/compra.js": { "runtime": "nodejs20.x" }
+  }
+}
