@@ -6,16 +6,15 @@
 // Fluxo:
 //   1. Verifica se status é "lost_cart"
 //   2. Busca ou cria contato no ManyChat
-//   3. Adiciona tag "CARRINHO ABANDONADO"
-//   4. Salva produto e link do checkout
-//   5. Dispara Flow de recuperação de carrinho
+//   3. Salva nome do produto
+//   4. Adiciona tag "[PUP] [ABANDONOU CARRINHO]"
+//      (ManyChat dispara o flow automaticamente pela tag)
 // ============================================
 
 import {
   buscarOuCriarSubscriber,
   adicionarTag,
   definirCampoCustomizado,
-  dispararFlow,
   extrairDadosPayT,
   responderErro,
   validarRequest,
@@ -27,7 +26,7 @@ export default async function handler(req, res) {
 
   try {
     const dados = req.body;
-    const { nome, telefone, produto, checkoutUrl, status, test } = extrairDadosPayT(dados);
+    const { nome, telefone, produto, status, test } = extrairDadosPayT(dados);
 
     // Ignora testes
     if (test) {
@@ -43,15 +42,13 @@ export default async function handler(req, res) {
 
     console.log("=== CARRINHO ABANDONADO ===");
     console.log("Cliente:", nome, "|", telefone, "|", produto);
-    console.log("Checkout URL:", checkoutUrl);
 
     if (!validarTelefone(telefone, res)) return;
 
     const API_KEY = process.env.MANYCHAT_API_KEY;
     const TAG_CARRINHO = process.env.TAG_CARRINHO_ABANDONADO_ID;
-    const FLOW_CARRINHO = process.env.FLOW_CARRINHO_ABANDONADO;
 
-    if (!API_KEY || !TAG_CARRINHO || !FLOW_CARRINHO) {
+    if (!API_KEY || !TAG_CARRINHO) {
       return responderErro(res, "Variáveis de ambiente incompletas (carrinho)");
     }
 
@@ -61,11 +58,11 @@ export default async function handler(req, res) {
 
     const id = subscriber.id;
 
-    // 2. Tag + campos + flow
-    await adicionarTag(id, TAG_CARRINHO, API_KEY);
-    await definirCampoCustomizado(id, "checkout_url", checkoutUrl, API_KEY);
+    // 2. Salva nome do produto
     await definirCampoCustomizado(id, "ultimo_produto", produto, API_KEY);
-    await dispararFlow(id, FLOW_CARRINHO, API_KEY);
+
+    // 3. Adiciona tag [PUP] [ABANDONOU CARRINHO] (ManyChat dispara o flow automaticamente)
+    await adicionarTag(id, TAG_CARRINHO, API_KEY);
 
     console.log("SUCESSO: Carrinho abandonado →", nome);
     return res.status(200).json({ result: "OK", evento: "carrinho_abandonado", subscriber: id });
