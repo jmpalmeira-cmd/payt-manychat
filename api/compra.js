@@ -6,9 +6,11 @@
 // Fluxo:
 //   1. Verifica se status é "paid"
 //   2. Busca ou cria contato no ManyChat
-//   3. REMOVE todas tags anteriores
-//   4. Adiciona tag "comprador"
-//   5. Dispara Flow de pós-compra
+//   3. Remove tag "[PUP] [ABANDONOU CARRINHO]"
+//      (cancela recuperação pendente)
+//   4. Salva nome do produto
+//   5. Adiciona tag "[PUP] [COMPRADORES SMIA]"
+//      (ManyChat dispara o flow de pós-compra pela tag)
 // ============================================
 
 import {
@@ -16,7 +18,6 @@ import {
   adicionarTag,
   removerTag,
   definirCampoCustomizado,
-  dispararFlow,
   extrairDadosPayT,
   responderErro,
   validarRequest,
@@ -49,11 +50,8 @@ export default async function handler(req, res) {
     const API_KEY = process.env.MANYCHAT_API_KEY;
     const TAG_COMPRADOR = process.env.TAG_COMPRADOR_ID;
     const TAG_CARRINHO = process.env.TAG_CARRINHO_ABANDONADO_ID;
-    const TAG_PUP = process.env.TAG_PUP_ID;
-    const TAG_EXPIRADO = process.env.TAG_EXPIRADO_ID;
-    const FLOW_COMPRA = process.env.FLOW_POS_COMPRA;
 
-    if (!API_KEY || !TAG_COMPRADOR || !FLOW_COMPRA) {
+    if (!API_KEY || !TAG_COMPRADOR) {
       return responderErro(res, "Variáveis de ambiente incompletas (compra)");
     }
 
@@ -63,20 +61,17 @@ export default async function handler(req, res) {
 
     const id = subscriber.id;
 
-    // 2. Limpa TODAS as tags de recuperação
-    if (jaExistia) {
-      console.log("Limpando tags anteriores...");
+    // 2. Remove tag de abandono (cancela flow de recuperação)
+    if (jaExistia && TAG_CARRINHO) {
+      console.log("Limpando tag de abandono...");
       await removerTag(id, TAG_CARRINHO, API_KEY);
-      await removerTag(id, TAG_PUP, API_KEY);
-      await removerTag(id, TAG_EXPIRADO, API_KEY);
     }
 
-    // 3. Adiciona tag comprador + produto
-    await adicionarTag(id, TAG_COMPRADOR, API_KEY);
+    // 3. Salva nome do produto
     await definirCampoCustomizado(id, "ultimo_produto", produto, API_KEY);
 
-    // 4. Dispara Flow pós-compra
-    await dispararFlow(id, FLOW_COMPRA, API_KEY);
+    // 4. Adiciona tag [PUP] [COMPRADORES SMIA] (ManyChat dispara flow automaticamente)
+    await adicionarTag(id, TAG_COMPRADOR, API_KEY);
 
     console.log("SUCESSO: Compra aprovada →", nome, "| Tags limpas:", jaExistia);
     return res.status(200).json({
