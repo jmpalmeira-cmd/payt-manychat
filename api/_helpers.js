@@ -34,15 +34,29 @@ export async function chamarManyChat(url, payload, apiKey) {
 }
 
 export async function buscarSubscriberPorTelefone(telefone, apiKey) {
-  const resposta = await chamarManyChat(
-    "https://api.manychat.com/fb/subscriber/findBySystemField",
-    { field_name: "whatsapp_phone", field_value: telefone },
-    apiKey
-  );
-  if (resposta?.status === "success" && resposta?.data) {
-    return resposta.data;
+  // findBySystemField é GET, não POST
+  // Busca por "phone" (não suporta whatsapp_phone)
+  try {
+    const url = "https://api.manychat.com/fb/subscriber/findBySystemField?field_name=phone&field_value=" + encodeURIComponent(telefone);
+    const resposta = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: "Bearer " + apiKey,
+        Accept: "application/json",
+      },
+    });
+
+    const corpo = await resposta.json();
+    console.log("ManyChat findBySystemField [" + resposta.status + "]:", JSON.stringify(corpo));
+
+    if (resposta.ok && corpo?.status === "success" && corpo?.data) {
+      return corpo.data;
+    }
+    return null;
+  } catch (erro) {
+    console.error("ERRO buscarSubscriber:", erro.message);
+    return null;
   }
-  return null;
 }
 
 export async function criarSubscriber(telefone, nome, apiKey) {
@@ -54,6 +68,8 @@ export async function criarSubscriber(telefone, nome, apiKey) {
       first_name: partes[0] || "",
       last_name: partes.slice(1).join(" ") || "",
       whatsapp_phone: telefone,
+      has_opt_in_sms: false,
+      has_opt_in_email: false,
       consent_phrase: "Interação via PayT",
     },
     apiKey
@@ -65,12 +81,16 @@ export async function criarSubscriber(telefone, nome, apiKey) {
 }
 
 export async function buscarOuCriarSubscriber(telefone, nome, apiKey) {
-  let subscriber = await buscarSubscriberPorTelefone(telefone, apiKey);
-  let jaExistia = true;
+  // Estratégia: tenta criar primeiro
+  // Se já existir (erro), busca pelo telefone
+  let subscriber = await criarSubscriber(telefone, nome, apiKey);
+  let jaExistia = false;
 
   if (!subscriber) {
-    subscriber = await criarSubscriber(telefone, nome, apiKey);
-    jaExistia = false;
+    // Provável que já existe, tenta buscar
+    console.log("Subscriber pode já existir. Buscando por telefone...");
+    subscriber = await buscarSubscriberPorTelefone(telefone, apiKey);
+    jaExistia = true;
   }
 
   return { subscriber, jaExistia };
@@ -123,13 +143,6 @@ export async function definirCampoCustomizado(subscriberId, campo, valor, apiKey
 // ========== EXTRAÇÃO DE DADOS PayT V1 ==========
 
 export function extrairDadosPayT(dados) {
-  // Estrutura PayT V1 conforme documentação oficial
-  // customer.name, customer.email, customer.phone
-  // product.name
-  // link.url (URL do checkout, com cart_id em caso de abandono)
-  // status (lost_cart, waiting_payment, paid, canceled, etc.)
-  // transaction.payment_status (expired, paid, refused, etc.)
-
   return {
     nome: dados.customer?.name || "",
     email: dados.customer?.email || "",
@@ -151,14 +164,12 @@ export function extrairDadosPayT(dados) {
 export function limparTelefone(telefone) {
   if (!telefone) return "";
 
-  // PayT envia telefone como "apenas números"
   let limpo = telefone.replace(/\D/g, "");
 
   if (limpo.charAt(0) === "0") {
     limpo = limpo.substring(1);
   }
 
-  // Se não tem código do país (55 = Brasil), adiciona
   if (limpo.length === 10 || limpo.length === 11) {
     limpo = "55" + limpo;
   }
