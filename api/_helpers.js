@@ -34,10 +34,10 @@ export async function chamarManyChat(url, payload, apiKey) {
 }
 
 // Busca contato pelo campo customizado "telefone busca"
-// O campo armazena no formato: 5521973863163 (sem +)
+// Usa field_id e formato sem + (ex: 5521973863163)
 export async function buscarSubscriberPorTelefone(telefoneSemMais, apiKey) {
   try {
-    const url = "https://api.manychat.com/fb/subscriber/findByCustomField?field_name=telefone busca&field_value=" + encodeURIComponent(telefoneSemMais);
+    const url = "https://api.manychat.com/fb/subscriber/findByCustomField?field_id=14216638&field_value=" + encodeURIComponent(telefoneSemMais);
     const resposta = await fetch(url, {
       method: "GET",
       headers: {
@@ -82,15 +82,13 @@ export async function criarSubscriber(telefoneComMais, nome, apiKey) {
 
 // Estratégia: tenta criar → se falhar (já existe), busca pelo campo customizado
 export async function buscarOuCriarSubscriber(telefone, nome, apiKey) {
-  // telefone vem no formato +5511957989341
   const telefoneComMais = telefone;
-  const telefoneSemMais = telefone.replace("+", ""); // 5511957989341
+  const telefoneSemMais = telefone.replace("+", "");
 
   let subscriber = await criarSubscriber(telefoneComMais, nome, apiKey);
   let jaExistia = false;
 
   if (!subscriber) {
-    // Contato provavelmente já existe, busca pelo campo customizado (sem +)
     console.log("Subscriber pode já existir. Buscando por telefone busca:", telefoneSemMais);
     subscriber = await buscarSubscriberPorTelefone(telefoneSemMais, apiKey);
     jaExistia = true;
