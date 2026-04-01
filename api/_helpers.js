@@ -1,7 +1,7 @@
 // ============================================
 // FUNÇÕES COMPARTILHADAS - PayT V1
-// Baseado na documentação oficial:
-// https://github.com/ventuinha/payt-postback
+// Usa campo customizado "telefone busca" para
+// encontrar contatos existentes no ManyChat
 // ============================================
 
 // ========== MANYCHAT API ==========
@@ -33,11 +33,11 @@ export async function chamarManyChat(url, payload, apiKey) {
   }
 }
 
-export async function buscarSubscriberPorTelefone(telefone, apiKey) {
-  // findBySystemField é GET, não POST
-  // Busca por "phone" (não suporta whatsapp_phone)
+// Busca contato pelo campo customizado "telefone busca"
+// O campo armazena no formato: 5521973863163 (sem +)
+export async function buscarSubscriberPorTelefone(telefoneSemMais, apiKey) {
   try {
-    const url = "https://api.manychat.com/fb/subscriber/findBySystemField?field_name=phone&field_value=" + encodeURIComponent(telefone);
+    const url = "https://api.manychat.com/fb/subscriber/findByCustomField?field_name=telefone busca&field_value=" + encodeURIComponent(telefoneSemMais);
     const resposta = await fetch(url, {
       method: "GET",
       headers: {
@@ -47,10 +47,10 @@ export async function buscarSubscriberPorTelefone(telefone, apiKey) {
     });
 
     const corpo = await resposta.json();
-    console.log("ManyChat findBySystemField [" + resposta.status + "]:", JSON.stringify(corpo));
+    console.log("ManyChat findByCustomField [" + resposta.status + "]:", JSON.stringify(corpo));
 
-    if (resposta.ok && corpo?.status === "success" && corpo?.data) {
-      return corpo.data;
+    if (resposta.ok && corpo?.status === "success" && corpo?.data && corpo.data.length > 0) {
+      return corpo.data[0];
     }
     return null;
   } catch (erro) {
@@ -59,15 +59,15 @@ export async function buscarSubscriberPorTelefone(telefone, apiKey) {
   }
 }
 
-export async function criarSubscriber(telefone, nome, apiKey) {
+// Cria contato com whatsapp_phone (formato com +)
+export async function criarSubscriber(telefoneComMais, nome, apiKey) {
   const partes = nome.split(" ");
   const resposta = await chamarManyChat(
     "https://api.manychat.com/fb/subscriber/createSubscriber",
     {
-      phone: telefone,
       first_name: partes[0] || "",
       last_name: partes.slice(1).join(" ") || "",
-      whatsapp_phone: telefone,
+      whatsapp_phone: telefoneComMais,
       has_opt_in_sms: false,
       has_opt_in_email: false,
       consent_phrase: "Interação via PayT",
@@ -80,16 +80,19 @@ export async function criarSubscriber(telefone, nome, apiKey) {
   return null;
 }
 
+// Estratégia: tenta criar → se falhar (já existe), busca pelo campo customizado
 export async function buscarOuCriarSubscriber(telefone, nome, apiKey) {
-  // Estratégia: tenta criar primeiro
-  // Se já existir (erro), busca pelo telefone
-  let subscriber = await criarSubscriber(telefone, nome, apiKey);
+  // telefone vem no formato +5511957989341
+  const telefoneComMais = telefone;
+  const telefoneSemMais = telefone.replace("+", ""); // 5511957989341
+
+  let subscriber = await criarSubscriber(telefoneComMais, nome, apiKey);
   let jaExistia = false;
 
   if (!subscriber) {
-    // Provável que já existe, tenta buscar
-    console.log("Subscriber pode já existir. Buscando por telefone...");
-    subscriber = await buscarSubscriberPorTelefone(telefone, apiKey);
+    // Contato provavelmente já existe, busca pelo campo customizado (sem +)
+    console.log("Subscriber pode já existir. Buscando por telefone busca:", telefoneSemMais);
+    subscriber = await buscarSubscriberPorTelefone(telefoneSemMais, apiKey);
     jaExistia = true;
   }
 
