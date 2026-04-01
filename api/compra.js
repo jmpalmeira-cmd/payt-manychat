@@ -7,17 +7,14 @@
 //   1. Verifica se status é "paid"
 //   2. Busca ou cria contato no ManyChat
 //   3. Remove tag "[PUP] [ABANDONOU CARRINHO]"
-//      (cancela recuperação pendente)
-//   4. Salva nome do produto
+//   4. Remove tag "[PUP] [REEMBOLSO SMIA]"
 //   5. Adiciona tag "[PUP] [COMPRADORES SMIA]"
-//      (ManyChat dispara o flow de pós-compra pela tag)
 // ============================================
 
 import {
   buscarOuCriarSubscriber,
   adicionarTag,
   removerTag,
-  definirCampoCustomizado,
   extrairDadosPayT,
   responderErro,
   validarRequest,
@@ -50,6 +47,7 @@ export default async function handler(req, res) {
     const API_KEY = process.env.MANYCHAT_API_KEY;
     const TAG_COMPRADOR = process.env.TAG_COMPRADOR_ID;
     const TAG_CARRINHO = process.env.TAG_CARRINHO_ABANDONADO_ID;
+    const TAG_REEMBOLSO = process.env.TAG_REEMBOLSO_ID;
 
     if (!API_KEY || !TAG_COMPRADOR) {
       return responderErro(res, "Variáveis de ambiente incompletas (compra)");
@@ -61,16 +59,14 @@ export default async function handler(req, res) {
 
     const id = subscriber.id;
 
-    // 2. Remove tag de abandono (cancela flow de recuperação)
-    if (jaExistia && TAG_CARRINHO) {
-      console.log("Limpando tag de abandono...");
-      await removerTag(id, TAG_CARRINHO, API_KEY);
+    // 2. Remove todas as tags anteriores
+    if (jaExistia) {
+      console.log("Limpando tags anteriores...");
+      if (TAG_CARRINHO) await removerTag(id, TAG_CARRINHO, API_KEY);
+      if (TAG_REEMBOLSO) await removerTag(id, TAG_REEMBOLSO, API_KEY);
     }
 
-    // 3. Salva nome do produto
-    await definirCampoCustomizado(id, "ultimo_produto", produto, API_KEY);
-
-    // 4. Adiciona tag [PUP] [COMPRADORES SMIA] (ManyChat dispara flow automaticamente)
+    // 3. Adiciona tag [PUP] [COMPRADORES SMIA]
     await adicionarTag(id, TAG_COMPRADOR, API_KEY);
 
     console.log("SUCESSO: Compra aprovada →", nome, "| Tags limpas:", jaExistia);
@@ -86,3 +82,10 @@ export default async function handler(req, res) {
     return responderErro(res, erro.message);
   }
 }
+```
+
+Commit e pronto. Agora o sistema completo fica:
+```
+Abandonou  →  remove comprador, reembolso + Tag [ABANDONOU CARRINHO]
+Comprou    →  remove abandono, reembolso  + Tag [COMPRADORES SMIA]
+Reembolso  →  remove comprador            + Tag [REEMBOLSO SMIA]
