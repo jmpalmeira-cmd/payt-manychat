@@ -5,12 +5,14 @@
 // Fluxo:
 //   1. Busca contato no ManyChat pelo campo "telefone busca"
 //   2. Se não encontrar, cria o contato
-//   3. Adiciona tag "[PUP] [REEMBOLSO SMIA]"
+//   3. Remove tag "[PUP] [COMPRADORES SMIA]"
+//   4. Adiciona tag "[PUP] [REEMBOLSO SMIA]"
 // ============================================
 
 import {
   buscarOuCriarSubscriber,
   adicionarTag,
+  removerTag,
   extrairDadosPayT,
   responderErro,
   validarRequest,
@@ -36,6 +38,7 @@ export default async function handler(req, res) {
 
     const API_KEY = process.env.MANYCHAT_API_KEY;
     const TAG_REEMBOLSO = process.env.TAG_REEMBOLSO_ID;
+    const TAG_COMPRADOR = process.env.TAG_COMPRADOR_ID;
 
     if (!API_KEY || !TAG_REEMBOLSO) {
       return responderErro(res, "Variáveis de ambiente incompletas (reembolso)");
@@ -47,7 +50,12 @@ export default async function handler(req, res) {
 
     const id = subscriber.id;
 
-    // 2. Adiciona tag [PUP] [REEMBOLSO SMIA]
+    // 2. Remove tag [PUP] [COMPRADORES SMIA]
+    if (TAG_COMPRADOR) {
+      await removerTag(id, TAG_COMPRADOR, API_KEY);
+    }
+
+    // 3. Adiciona tag [PUP] [REEMBOLSO SMIA]
     await adicionarTag(id, TAG_REEMBOLSO, API_KEY);
 
     console.log("SUCESSO: Reembolso solicitado →", nome);
