@@ -33,7 +33,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ result: "Teste ignorado" });
     }
 
-    // Verifica se é compra aprovada
     if (status !== "paid") {
       console.log("Evento ignorado (compra):", status);
       return res.status(200).json({ result: "Evento ignorado: " + status });
@@ -50,26 +49,23 @@ export default async function handler(req, res) {
     const TAG_REEMBOLSO = process.env.TAG_REEMBOLSO_ID;
 
     if (!API_KEY || !TAG_COMPRADOR) {
-      return responderErro(res, "Variáveis de ambiente incompletas (compra)");
+      return responderErro(res, "Variveis de ambiente incompletas (compra)");
     }
 
-    // 1. Busca ou cria subscriber
     const { subscriber, jaExistia } = await buscarOuCriarSubscriber(telefone, nome, API_KEY);
     if (!subscriber) return responderErro(res, "Falha ao buscar/criar subscriber");
 
     const id = subscriber.id;
 
-    // 2. Remove todas as tags anteriores
     if (jaExistia) {
       console.log("Limpando tags anteriores...");
       if (TAG_CARRINHO) await removerTag(id, TAG_CARRINHO, API_KEY);
       if (TAG_REEMBOLSO) await removerTag(id, TAG_REEMBOLSO, API_KEY);
     }
 
-    // 3. Adiciona tag [PUP] [COMPRADORES SMIA]
     await adicionarTag(id, TAG_COMPRADOR, API_KEY);
 
-    console.log("SUCESSO: Compra aprovada →", nome, "| Tags limpas:", jaExistia);
+    console.log("SUCESSO: Compra aprovada ->", nome, "| Tags limpas:", jaExistia);
     return res.status(200).json({
       result: "OK",
       evento: "compra_aprovada",
@@ -82,10 +78,3 @@ export default async function handler(req, res) {
     return responderErro(res, erro.message);
   }
 }
-```
-
-Commit e pronto. Agora o sistema completo fica:
-```
-Abandonou  →  remove comprador, reembolso + Tag [ABANDONOU CARRINHO]
-Comprou    →  remove abandono, reembolso  + Tag [COMPRADORES SMIA]
-Reembolso  →  remove comprador            + Tag [REEMBOLSO SMIA]
