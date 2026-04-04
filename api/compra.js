@@ -4,11 +4,11 @@
 // (Finalizada/Aprovada)
 //
 // Fluxo:
-//   1. Verifica se status é "paid"
+//   1. Verifica se status e "paid"
 //   2. Busca ou cria contato no ManyChat
 //   3. Remove tag "[PUP] [ABANDONOU CARRINHO]"
 //   4. Remove tag "[PUP] [REEMBOLSO SMIA]"
-//   5. Salva email no campo customizado
+//   5. Salva email no campo customizado (field_id: 14453438)
 //   6. Adiciona tag "[PUP] [COMPRADORES SMIA]"
 // ============================================
 
@@ -16,7 +16,7 @@ import {
   buscarOuCriarSubscriber,
   adicionarTag,
   removerTag,
-  definirCampoCustomizado,
+  definirCampoPorId,
   extrairDadosPayT,
   responderErro,
   validarRequest,
@@ -65,9 +65,9 @@ export default async function handler(req, res) {
       if (TAG_REEMBOLSO) await removerTag(id, TAG_REEMBOLSO, API_KEY);
     }
 
-    // Salva email no campo customizado
+    // Salva email no campo customizado (field_id: 14453438)
     if (email) {
-      await definirCampoCustomizado(id, "email_compra", email, API_KEY);
+      await definirCampoPorId(id, 14453438, email, API_KEY);
     }
 
     await adicionarTag(id, TAG_COMPRADOR, API_KEY);
