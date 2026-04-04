@@ -33,8 +33,7 @@ export async function chamarManyChat(url, payload, apiKey) {
   }
 }
 
-// Busca contato pelo campo customizado "telefone busca"
-// Usa field_id e formato sem + (ex: 5521973863163)
+// Busca contato pelo campo customizado "telefone busca" (field_id: 14216638)
 export async function buscarSubscriberPorTelefone(telefoneSemMais, apiKey) {
   try {
     const url = "https://api.manychat.com/fb/subscriber/findByCustomField?field_id=14216638&field_value=" + encodeURIComponent(telefoneSemMais);
@@ -59,7 +58,7 @@ export async function buscarSubscriberPorTelefone(telefoneSemMais, apiKey) {
   }
 }
 
-// Cria contato com whatsapp_phone (formato com +)
+// Cria contato com whatsapp_phone
 export async function criarSubscriber(telefoneComMais, nome, apiKey) {
   const partes = nome.split(" ");
   const resposta = await chamarManyChat(
@@ -70,7 +69,7 @@ export async function criarSubscriber(telefoneComMais, nome, apiKey) {
       whatsapp_phone: telefoneComMais,
       has_opt_in_sms: false,
       has_opt_in_email: false,
-      consent_phrase: "Interação via PayT",
+      consent_phrase: "Interacao via PayT",
     },
     apiKey
   );
@@ -80,7 +79,7 @@ export async function criarSubscriber(telefoneComMais, nome, apiKey) {
   return null;
 }
 
-// Estratégia: tenta criar → se falhar (já existe), busca pelo campo customizado
+// Estrategia: tenta criar -> se falhar (ja existe), busca pelo campo customizado
 export async function buscarOuCriarSubscriber(telefone, nome, apiKey) {
   const telefoneComMais = telefone;
   const telefoneSemMais = telefone.replace("+", "");
@@ -89,7 +88,7 @@ export async function buscarOuCriarSubscriber(telefone, nome, apiKey) {
   let jaExistia = false;
 
   if (!subscriber) {
-    console.log("Subscriber pode já existir. Buscando por telefone busca:", telefoneSemMais);
+    console.log("Subscriber pode ja existir. Buscando por telefone busca:", telefoneSemMais);
     subscriber = await buscarSubscriberPorTelefone(telefoneSemMais, apiKey);
     jaExistia = true;
   }
@@ -130,18 +129,19 @@ export async function dispararFlow(subscriberId, flowId, apiKey) {
   return resposta;
 }
 
-export async function definirCampoCustomizado(subscriberId, campo, valor, apiKey) {
+// Define campo customizado usando field_id (mais confiavel que field_name)
+export async function definirCampoPorId(subscriberId, fieldId, valor, apiKey) {
   if (!valor) return null;
   const resposta = await chamarManyChat(
     "https://api.manychat.com/fb/subscriber/setCustomField",
-    { subscriber_id: subscriberId, field_name: campo, field_value: valor },
+    { subscriber_id: subscriberId, field_id: parseInt(fieldId), field_value: valor },
     apiKey
   );
-  console.log("Campo:", campo, "=", valor);
+  console.log("Campo ID", fieldId, "=", valor);
   return resposta;
 }
 
-// ========== EXTRAÇÃO DE DADOS PayT V1 ==========
+// ========== EXTRACÃO DE DADOS PayT V1 ==========
 
 export function extrairDadosPayT(dados) {
   return {
@@ -160,7 +160,7 @@ export function extrairDadosPayT(dados) {
   };
 }
 
-// ========== UTILITÁRIOS ==========
+// ========== UTILITARIOS ==========
 
 export function limparTelefone(telefone) {
   if (!telefone) return "";
@@ -189,7 +189,7 @@ export function validarRequest(req, res, nomeEvento) {
     return false;
   }
   if (req.method !== "POST") {
-    res.status(405).json({ error: "Método não permitido" });
+    res.status(405).json({ error: "Metodo nao permitido" });
     return false;
   }
   return true;
@@ -197,7 +197,7 @@ export function validarRequest(req, res, nomeEvento) {
 
 export function validarTelefone(telefone, res) {
   if (!telefone || telefone === "+") {
-    responderErro(res, "Telefone não encontrado nos dados", 400);
+    responderErro(res, "Telefone nao encontrado nos dados", 400);
     return false;
   }
   return true;
