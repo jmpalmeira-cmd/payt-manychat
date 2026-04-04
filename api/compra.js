@@ -8,13 +8,15 @@
 //   2. Busca ou cria contato no ManyChat
 //   3. Remove tag "[PUP] [ABANDONOU CARRINHO]"
 //   4. Remove tag "[PUP] [REEMBOLSO SMIA]"
-//   5. Adiciona tag "[PUP] [COMPRADORES SMIA]"
+//   5. Salva email no campo customizado
+//   6. Adiciona tag "[PUP] [COMPRADORES SMIA]"
 // ============================================
 
 import {
   buscarOuCriarSubscriber,
   adicionarTag,
   removerTag,
+  definirCampoCustomizado,
   extrairDadosPayT,
   responderErro,
   validarRequest,
@@ -26,7 +28,7 @@ export default async function handler(req, res) {
 
   try {
     const dados = req.body;
-    const { nome, telefone, produto, status, test } = extrairDadosPayT(dados);
+    const { nome, telefone, email, produto, status, test } = extrairDadosPayT(dados);
 
     if (test) {
       console.log("Modo teste - ignorando");
@@ -39,7 +41,7 @@ export default async function handler(req, res) {
     }
 
     console.log("=== COMPRA APROVADA ===");
-    console.log("Cliente:", nome, "|", telefone, "|", produto);
+    console.log("Cliente:", nome, "|", telefone, "|", email, "|", produto);
 
     if (!validarTelefone(telefone, res)) return;
 
@@ -49,7 +51,7 @@ export default async function handler(req, res) {
     const TAG_REEMBOLSO = process.env.TAG_REEMBOLSO_ID;
 
     if (!API_KEY || !TAG_COMPRADOR) {
-      return responderErro(res, "Variveis de ambiente incompletas (compra)");
+      return responderErro(res, "Variaveis de ambiente incompletas (compra)");
     }
 
     const { subscriber, jaExistia } = await buscarOuCriarSubscriber(telefone, nome, API_KEY);
@@ -61,6 +63,11 @@ export default async function handler(req, res) {
       console.log("Limpando tags anteriores...");
       if (TAG_CARRINHO) await removerTag(id, TAG_CARRINHO, API_KEY);
       if (TAG_REEMBOLSO) await removerTag(id, TAG_REEMBOLSO, API_KEY);
+    }
+
+    // Salva email no campo customizado
+    if (email) {
+      await definirCampoCustomizado(id, "email_compra", email, API_KEY);
     }
 
     await adicionarTag(id, TAG_COMPRADOR, API_KEY);
