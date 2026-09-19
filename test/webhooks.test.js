@@ -1,11 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const INTEGRATION_KEY = "segredo-payt";
-
 function configurarAmbiente() {
   Object.assign(process.env, {
-    PAYT_INTEGRATION_KEY: INTEGRATION_KEY,
     MANYCHAT_API_KEY: "chave-de-teste",
     TAG_CARRINHO_ABANDONADO_ID: "101",
     TAG_COMPRADOR_ID: "102",
@@ -51,7 +48,6 @@ function substituirFetch(t, implementacao) {
 
 function criarPayload(dados = {}) {
   return {
-    integration_key: INTEGRATION_KEY,
     customer: {
       name: "Cliente Teste",
       email: "teste@example.com",
@@ -167,23 +163,6 @@ test("POST /api/compra retorna erro quando o ManyChat não salva o email", async
 
   assert.equal(res.statusCode, 500);
   assert.deepEqual(res.body, { error: "Falha ao definir campo no ManyChat" });
-});
-
-test("POST /api/carrinho rejeita webhook sem a chave de integração da PayT", async (t) => {
-  configurarAmbiente();
-  let chamouManyChat = false;
-  substituirFetch(t, async () => {
-    chamouManyChat = true;
-    throw new Error("ManyChat não deveria ser chamado");
-  });
-
-  const payload = criarPayload({ status: "lost_cart" });
-  delete payload.integration_key;
-  const res = await executar("carrinho", "POST", payload);
-
-  assert.equal(res.statusCode, 401);
-  assert.deepEqual(res.body, { error: "Origem do webhook não autorizada" });
-  assert.equal(chamouManyChat, false);
 });
 
 test("POST /api/carrinho não aceita status de erro do ManyChat como sucesso", async (t) => {

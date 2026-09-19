@@ -208,17 +208,6 @@ export function validarRequest(req, res, nomeEvento) {
     res.status(405).json({ error: "Metodo nao permitido" });
     return false;
   }
-
-  const integrationKey = process.env.PAYT_INTEGRATION_KEY;
-  if (!integrationKey) {
-    res.status(500).json({ error: "PAYT_INTEGRATION_KEY não configurada" });
-    return false;
-  }
-  if (req.body?.integration_key !== integrationKey) {
-    res.status(401).json({ error: "Origem do webhook não autorizada" });
-    return false;
-  }
-
   return true;
 }
 
