@@ -21,10 +21,10 @@ export async function chamarManyChat(url, payload, apiKey) {
     const corpo = await resposta.json();
     console.log("ManyChat [" + resposta.status + "]:", JSON.stringify(corpo));
 
-    if (resposta.ok) {
+    if (resposta.ok && corpo?.status !== "error") {
       return corpo;
     } else {
-      console.log("ERRO ManyChat: HTTP", resposta.status);
+      console.log("ERRO ManyChat: HTTP", resposta.status, corpo?.message || "");
       return null;
     }
   } catch (erro) {
@@ -103,6 +103,7 @@ export async function adicionarTag(subscriberId, tagId, apiKey) {
     { subscriber_id: subscriberId, tag_id: parseInt(tagId) },
     apiKey
   );
+  if (!resposta) throw new Error("Falha ao adicionar tag no ManyChat");
   console.log("Tag ADICIONADA:", tagId);
   return resposta;
 }
@@ -114,6 +115,7 @@ export async function removerTag(subscriberId, tagId, apiKey) {
     { subscriber_id: subscriberId, tag_id: parseInt(tagId) },
     apiKey
   );
+  if (!resposta) throw new Error("Falha ao remover tag no ManyChat");
   console.log("Tag REMOVIDA:", tagId);
   return resposta;
 }
@@ -125,6 +127,7 @@ export async function dispararFlow(subscriberId, flowId, apiKey) {
     { subscriber_id: subscriberId, flow_ns: flowId },
     apiKey
   );
+  if (!resposta) throw new Error("Falha ao disparar flow no ManyChat");
   console.log("Flow DISPARADO:", flowId);
   return resposta;
 }
@@ -137,7 +140,20 @@ export async function definirCampoPorId(subscriberId, fieldId, valor, apiKey) {
     { subscriber_id: subscriberId, field_id: parseInt(fieldId), field_value: valor },
     apiKey
   );
+  if (!resposta) throw new Error("Falha ao definir campo no ManyChat");
   console.log("Campo ID", fieldId, "=", valor);
+  return resposta;
+}
+
+export async function definirCampoCustomizado(subscriberId, campo, valor, apiKey) {
+  if (!valor) return null;
+  const resposta = await chamarManyChat(
+    "https://api.manychat.com/fb/subscriber/setCustomFieldByName",
+    { subscriber_id: subscriberId, field_name: campo, field_value: valor },
+    apiKey
+  );
+  if (!resposta) throw new Error("Falha ao definir campo no ManyChat");
+  console.log("Campo:", campo, "=", valor);
   return resposta;
 }
 
@@ -192,6 +208,17 @@ export function validarRequest(req, res, nomeEvento) {
     res.status(405).json({ error: "Metodo nao permitido" });
     return false;
   }
+
+  const integrationKey = process.env.PAYT_INTEGRATION_KEY;
+  if (!integrationKey) {
+    res.status(500).json({ error: "PAYT_INTEGRATION_KEY não configurada" });
+    return false;
+  }
+  if (req.body?.integration_key !== integrationKey) {
+    res.status(401).json({ error: "Origem do webhook não autorizada" });
+    return false;
+  }
+
   return true;
 }
 

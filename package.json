@@ -1,7 +1,10 @@
 {
   "name": "payt-manychat-automacoes",
   "version": "1.0.0",
-  "description": "4 Automações PayT → ManyChat WhatsApp",
+  "description": "6 automações PayT → ManyChat WhatsApp",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
 }
