@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { request } from "node:http";
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { criarServidor } from "../server.js";
 
 const endpoints = ["carrinho", "compra", "pix", "expirado", "reembolso", "upsell"];
@@ -155,4 +157,63 @@ test("corpos inválidos e maiores que 1 MB são rejeitados antes do ManyChat", a
   }));
   assert.equal(grande.statusCode, 413);
   assert.equal(chamadas, 0);
+});
+
+test("SIGTERM aguarda a operação ManyChat mesmo após o cliente desconectar", { timeout: 5000 }, async (t) => {
+  const reserva = criarServidor();
+  await new Promise((resolve) => reserva.listen(0, "127.0.0.1", resolve));
+  const port = reserva.address().port;
+  await new Promise((resolve) => reserva.close(resolve));
+
+  const source = `
+    process.env.PORT = "${port}";
+    process.env.MANYCHAT_API_KEY = "chave-de-teste";
+    process.env.TAG_COMPRADOR_ID = "102";
+    globalThis.fetch = async (url) => {
+      if (String(url).includes("createSubscriber")) {
+        return { ok: true, status: 200, json: async () => ({ status: "success", data: { id: 456 } }) };
+      }
+      console.log("TAG_INICIADA");
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      console.log("TAG_FINALIZADA");
+      return { ok: true, status: 200, json: async () => ({ status: "success" }) };
+    };
+    await import(process.argv[1]);
+  `;
+  const filho = spawn(process.execPath, [
+    "--input-type=module", "-e", source, fileURLToPath(new URL("../server.js", import.meta.url)),
+  ], { stdio: ["ignore", "pipe", "pipe"] });
+  t.after(() => {
+    if (filho.exitCode === null && filho.signalCode === null) filho.kill("SIGKILL");
+  });
+  let saida = "";
+  let erros = "";
+  let iniciouServidor;
+  let iniciouTag;
+  const servidorAtivo = new Promise((resolve) => { iniciouServidor = resolve; });
+  const tagIniciada = new Promise((resolve) => { iniciouTag = resolve; });
+  filho.stdout.on("data", (parte) => {
+    saida += parte;
+    if (saida.includes("Webhooks ativos")) iniciouServidor();
+    if (saida.includes("TAG_INICIADA")) iniciouTag();
+  });
+  filho.stderr.on("data", (parte) => { erros += parte; });
+  const encerrado = new Promise((resolve, reject) => {
+    filho.on("error", reject);
+    filho.on("exit", (code, signal) => resolve({ code, signal }));
+  });
+
+  await servidorAtivo;
+  const req = request({ hostname: "127.0.0.1", port, path: "/api/compra", method: "POST" });
+  req.on("error", () => {});
+  req.end(JSON.stringify({ status: "paid", customer: { name: "Cliente Teste", phone: "11999999999" } }));
+  await tagIniciada;
+  const desconectado = new Promise((resolve) => req.once("close", resolve));
+  req.destroy();
+  await desconectado;
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  filho.kill("SIGTERM");
+
+  assert.deepEqual(await encerrado, { code: 0, signal: null }, erros);
+  assert.ok(saida.includes("TAG_FINALIZADA"), saida + erros);
 });

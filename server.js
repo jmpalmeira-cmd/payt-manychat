@@ -12,7 +12,8 @@ const handlers = { carrinho, compra, pix, expirado, reembolso, upsell };
 const LIMITE_BODY = 1024 * 1024;
 
 export function criarServidor() {
-  return createServer(async (req, res) => {
+  const pendentes = new Set();
+  const processarRequest = async (req, res) => {
     res.status = (codigo) => {
       res.statusCode = codigo;
       return res;
@@ -70,15 +71,26 @@ export function criarServidor() {
         res.status(500).json({ error: "Falha ao processar webhook" });
       }
     }
+  };
+  const servidor = createServer((req, res) => {
+    const processamento = processarRequest(req, res);
+    pendentes.add(processamento);
+    const remover = () => pendentes.delete(processamento);
+    processamento.then(remover, remover);
   });
+  servidor.encerrar = async () => {
+    await new Promise((resolve) => servidor.close(resolve));
+    await Promise.allSettled(pendentes);
+  };
+  return servidor;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const servidor = criarServidor();
   const port = Number(process.env.PORT || 3000);
   servidor.listen(port, "0.0.0.0", () => console.log("Webhooks ativos na porta", port));
-  process.on("SIGTERM", () => {
-    servidor.close(() => process.exit(0));
+  process.once("SIGTERM", () => {
+    servidor.encerrar().then(() => process.exit(0));
     setTimeout(() => process.exit(1), 30000).unref();
   });
 }
