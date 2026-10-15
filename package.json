@@ -4,7 +4,11 @@
   "description": "6 automações PayT → ManyChat WhatsApp",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
+    "start": "node server.js",
     "test": "node --test"
   }
 }
