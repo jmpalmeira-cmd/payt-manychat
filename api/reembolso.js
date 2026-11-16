@@ -37,10 +37,17 @@ export default async function handler(req, res) {
     if (!validarTelefone(telefone, res)) return;
 
     const API_KEY = process.env.MANYCHAT_API_KEY;
-    const TAG_REEMBOLSO = process.env.TAG_REEMBOLSO_ID;
-    const TAG_COMPRADOR = process.env.TAG_COMPRADOR_ID;
+    const produtoNormalizado = produto.toLowerCase();
+    const ehAcelera = produtoNormalizado.includes("acelera");
+    const ehPack = produtoNormalizado.includes("pack") && produtoNormalizado.includes("port");
+    const TAG_REEMBOLSO = ehAcelera || ehPack ? null : process.env.TAG_REEMBOLSO_ID;
+    const TAG_COMPRADOR = ehAcelera
+      ? process.env.TAG_COMPRADOR_ACELERA_ID
+      : ehPack
+        ? process.env.TAG_COMPROU_UPSELL_ID
+        : process.env.TAG_COMPRADOR_ID;
 
-    if (!API_KEY || !TAG_REEMBOLSO) {
+    if (!API_KEY || (!TAG_REEMBOLSO && !TAG_COMPRADOR)) {
       return responderErro(res, "Variáveis de ambiente incompletas (reembolso)");
     }
 
@@ -57,7 +64,9 @@ export default async function handler(req, res) {
     }
 
     // 3. Adiciona tag [PUP] [REEMBOLSO SMIA]
-    await adicionarTag(id, TAG_REEMBOLSO, API_KEY);
+    if (TAG_REEMBOLSO) {
+      await adicionarTag(id, TAG_REEMBOLSO, API_KEY);
+    }
 
     console.log("SUCESSO: Reembolso solicitado →", nome);
     return res.status(200).json({ result: "OK", evento: "reembolso", subscriber: id });

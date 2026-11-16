@@ -160,6 +160,22 @@ test("reembolso do SMIA na Kiwify remove comprador e aplica a tag de reembolso",
   assert.equal(JSON.parse(addTag.body).tag_id, 84570378);
 });
 
+test("reembolso do Acelera remove a tag de comprador sem usar a tag de reembolso do SMIA", async (t) => {
+  configurarAmbiente();
+  const chamadas = simularManyChat(t, [{ id: 89971500 }]);
+  const body = payloadKiwify("Oficial | Acelera Black");
+  body.webhook_event_type = "order_refunded";
+  body.order_status = "refunded";
+
+  const res = await executar(body);
+
+  assert.equal(res.statusCode, 200);
+  const removeTag = chamadas.find((chamada) => chamada.url.includes("/subscriber/removeTag"));
+  const addTag = chamadas.find((chamada) => chamada.url.includes("/subscriber/addTag"));
+  assert.equal(JSON.parse(removeTag.body).tag_id, 89971500);
+  assert.equal(addTag, undefined);
+});
+
 test("assinatura inválida não chama o ManyChat", async (t) => {
   configurarAmbiente();
   const chamadas = simularManyChat(t);

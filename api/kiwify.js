@@ -81,7 +81,7 @@ export default async function handler(req, res) {
   if (produto === "smia" && (tipo.includes("abandon") || status.includes("abandon"))) {
     return carrinho({ method: "POST", body: paraPayloadPayt(evento, "lost_cart") }, res);
   }
-  if (produto === "smia" && (
+  if (produto && (
     tipo.includes("refund")
     || tipo.includes("chargeback")
     || status === "refunded"
