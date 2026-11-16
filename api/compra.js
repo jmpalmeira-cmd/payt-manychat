@@ -46,9 +46,20 @@ export default async function handler(req, res) {
     if (!validarTelefone(telefone, res)) return;
 
     const API_KEY = process.env.MANYCHAT_API_KEY;
-    const TAG_COMPRADOR = process.env.TAG_COMPRADOR_ID;
-    const TAG_CARRINHO = process.env.TAG_CARRINHO_ABANDONADO_ID;
-    const TAG_REEMBOLSO = process.env.TAG_REEMBOLSO_ID;
+    const produtoNormalizado = produto.toLowerCase();
+    const ehAcelera = produtoNormalizado.includes("acelera");
+    const ehPack = produtoNormalizado.includes("pack") && produtoNormalizado.includes("port");
+    const TAG_COMPRADOR = ehAcelera
+      ? process.env.TAG_COMPRADOR_ACELERA_ID
+      : ehPack
+        ? process.env.TAG_COMPROU_UPSELL_ID
+        : process.env.TAG_COMPRADOR_ID;
+    const TAG_CARRINHO = ehAcelera || ehPack
+      ? null
+      : process.env.TAG_CARRINHO_ABANDONADO_ID;
+    const TAG_REEMBOLSO = ehAcelera || ehPack
+      ? null
+      : process.env.TAG_REEMBOLSO_ID;
 
     if (!API_KEY || !TAG_COMPRADOR) {
       return responderErro(res, "Variaveis de ambiente incompletas (compra)");
@@ -61,8 +72,13 @@ export default async function handler(req, res) {
 
     if (jaExistia) {
       console.log("Limpando tags anteriores...");
-      if (TAG_CARRINHO) await removerTag(id, TAG_CARRINHO, API_KEY);
-      if (TAG_REEMBOLSO) await removerTag(id, TAG_REEMBOLSO, API_KEY);
+      const tagsAtuais = new Set((subscriber.tags || []).map((tag) => String(tag.id)));
+      if (TAG_CARRINHO && tagsAtuais.has(String(TAG_CARRINHO))) {
+        await removerTag(id, TAG_CARRINHO, API_KEY);
+      }
+      if (TAG_REEMBOLSO && tagsAtuais.has(String(TAG_REEMBOLSO))) {
+        await removerTag(id, TAG_REEMBOLSO, API_KEY);
+      }
     }
 
     // Salva email no campo customizado (field_id: 14453438)

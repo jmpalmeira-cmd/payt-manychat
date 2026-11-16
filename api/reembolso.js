@@ -51,7 +51,8 @@ export default async function handler(req, res) {
     const id = subscriber.id;
 
     // 2. Remove tag [PUP] [COMPRADORES SMIA]
-    if (TAG_COMPRADOR) {
+    const tagsAtuais = new Set((subscriber.tags || []).map((tag) => String(tag.id)));
+    if (TAG_COMPRADOR && tagsAtuais.has(String(TAG_COMPRADOR))) {
       await removerTag(id, TAG_COMPRADOR, API_KEY);
     }
 

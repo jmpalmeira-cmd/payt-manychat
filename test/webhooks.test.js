@@ -131,22 +131,25 @@ test("POST /api/expirado retorna erro quando o ManyChat não dispara o flow", as
   assert.deepEqual(res.body, { error: "Falha ao disparar flow no ManyChat" });
 });
 
-test("POST /api/compra retorna erro quando o ManyChat não remove uma tag", async (t) => {
+test("POST /api/compra não tenta remover tags ausentes antes de aplicar a compra", async (t) => {
   configurarAmbiente();
-  let chamada = 0;
-  substituirFetch(t, async () => {
-    chamada += 1;
-    if (chamada === 1) return respostaManyChat({ status: "error" }, 400);
-    if (chamada === 2) {
-      return respostaManyChat({ status: "success", data: [{ id: 456 }] });
+  const urls = [];
+  substituirFetch(t, async (url) => {
+    urls.push(String(url));
+    if (String(url).includes("createSubscriber")) {
+      return respostaManyChat({ status: "error" }, 400);
     }
-    return respostaManyChat({ status: "error" }, 500);
+    if (String(url).includes("findByCustomField")) {
+      return respostaManyChat({ status: "success", data: [{ id: 456, tags: [] }] });
+    }
+    return respostaManyChat({ status: "success", data: {} });
   });
 
   const res = await executar("compra", "POST", criarPayload({ status: "paid" }));
 
-  assert.equal(res.statusCode, 500);
-  assert.deepEqual(res.body, { error: "Falha ao remover tag no ManyChat" });
+  assert.equal(res.statusCode, 200);
+  assert.equal(urls.some((url) => url.includes("removeTag")), false);
+  assert.equal(urls.some((url) => url.includes("addTag")), true);
 });
 
 test("POST /api/compra retorna erro quando o ManyChat não salva o email", async (t) => {
