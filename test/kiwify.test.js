@@ -170,3 +170,13 @@ test("assinatura inválida não chama o ManyChat", async (t) => {
   assert.equal(res.statusCode, 401);
   assert.equal(chamadas.length, 0);
 });
+
+test("produto não mapeado não recebe tag do SMIA por engano", async (t) => {
+  configurarAmbiente();
+  const chamadas = simularManyChat(t);
+
+  const res = await executar(payloadKiwify("Outro produto"));
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(chamadas.length, 0);
+});

@@ -42,10 +42,13 @@ function paraPayloadPayt(evento, status) {
   };
 }
 
-function ehSmia(evento) {
+function tipoProduto(evento) {
   const produto = evento.Product || evento.product || {};
   const nome = String(produto.product_name || produto.name || "").toLowerCase();
-  return nome.includes("social media") || nome.includes("smia");
+  if (nome.includes("social media") || nome.includes("smia")) return "smia";
+  if (nome.includes("acelera")) return "acelera";
+  if (nome.includes("pack") && nome.includes("port")) return "pack";
+  return null;
 }
 
 export default async function handler(req, res) {
@@ -71,13 +74,14 @@ export default async function handler(req, res) {
 
   const tipo = String(evento.webhook_event_type || "").toLowerCase();
   const status = String(evento.order_status || "").toLowerCase();
-  if (tipo === "order_approved" && status === "paid") {
+  const produto = tipoProduto(evento);
+  if (produto && tipo === "order_approved" && status === "paid") {
     return compra({ method: "POST", body: paraPayloadPayt(evento, "paid") }, res);
   }
-  if (ehSmia(evento) && (tipo.includes("abandon") || status.includes("abandon"))) {
+  if (produto === "smia" && (tipo.includes("abandon") || status.includes("abandon"))) {
     return carrinho({ method: "POST", body: paraPayloadPayt(evento, "lost_cart") }, res);
   }
-  if (ehSmia(evento) && (
+  if (produto === "smia" && (
     tipo.includes("refund")
     || tipo.includes("chargeback")
     || status === "refunded"
