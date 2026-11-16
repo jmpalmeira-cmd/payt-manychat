@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import { request } from "node:http";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -122,6 +123,43 @@ test("compra por HTTP preserva JSON UTF-8 e aplica a tag de comprador", async (t
   });
   assert.deepEqual(chamadas.find(({ url }) => url.includes("addTag")).payload, {
     subscriber_id: 456, tag_id: 102,
+  });
+});
+
+test("compra da Kiwify assinada chega por HTTP e aplica a tag do Acelera", async (t) => {
+  configurarCompra(t);
+  process.env.KIWIFY_WEBHOOK_TOKEN = "segredo-kiwify";
+  process.env.TAG_COMPRADOR_ACELERA_ID = "89971500";
+  t.after(() => {
+    delete process.env.KIWIFY_WEBHOOK_TOKEN;
+    delete process.env.TAG_COMPRADOR_ACELERA_ID;
+  });
+  const chamadas = [];
+  substituirFetch(t, async (url, options) => {
+    chamadas.push({ url: String(url), payload: JSON.parse(options.body) });
+    return respostaManyChat({ status: "success", data: { id: 456 } });
+  });
+  const port = await iniciarServidor(t);
+  const payload = JSON.stringify({
+    webhook_event_type: "order_approved",
+    order_status: "paid",
+    Product: { product_name: "Oficial | Acelera Black" },
+    Customer: {
+      full_name: "Cliente Kiwify",
+      email: "cliente@example.com",
+      mobile: "+5511999999999",
+    },
+  });
+  const signature = createHmac("sha1", process.env.KIWIFY_WEBHOOK_TOKEN)
+    .update(payload)
+    .digest("hex");
+
+  const res = await requisitar(port, `/api/kiwify?signature=${signature}`, "POST", payload);
+
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(chamadas.find(({ url }) => url.includes("addTag")).payload, {
+    subscriber_id: 456,
+    tag_id: 89971500,
   });
 });
 

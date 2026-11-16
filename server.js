@@ -5,10 +5,11 @@ import carrinho from "./api/carrinho.js";
 import compra from "./api/compra.js";
 import pix from "./api/pix.js";
 import expirado from "./api/expirado.js";
+import kiwify from "./api/kiwify.js";
 import reembolso from "./api/reembolso.js";
 import upsell from "./api/upsell.js";
 
-const handlers = { carrinho, compra, pix, expirado, reembolso, upsell };
+const handlers = { carrinho, compra, pix, expirado, kiwify, reembolso, upsell };
 const LIMITE_BODY = 1024 * 1024;
 
 export function criarServidor() {
@@ -56,8 +57,9 @@ export function criarServidor() {
         if (tamanho > LIMITE_BODY) {
           return res.status(413).json({ error: "Payload excede o limite de 1 MB" });
         }
+        req.rawBody = Buffer.concat(partes);
         try {
-          req.body = JSON.parse(Buffer.concat(partes).toString("utf8"));
+          req.body = JSON.parse(req.rawBody.toString("utf8"));
         } catch {
           return res.status(400).json({ error: "JSON invalido" });
         }

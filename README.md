@@ -12,12 +12,14 @@ Webhooks que recebem eventos da PayT e atualizam contatos, tags, campos e flows 
 - `POST /api/expirado`: PIX ou boleto expirado (`transaction.payment_status: expired`).
 - `POST /api/reembolso`: solicitação de reembolso.
 - `POST /api/upsell`: upsell aprovado (`status: paid`).
+- `POST /api/kiwify`: eventos assinados da Kiwify para as tags de compra, carrinho e reembolso.
 
 ## Configuração
 
 Copie `.env.example` para o ambiente local ou configure as mesmas variáveis no Railway. Nunca versione os valores reais.
 
 - `MANYCHAT_API_KEY`: token da API pública do ManyChat.
+- `KIWIFY_WEBHOOK_TOKEN`: token usado para validar a assinatura dos webhooks da Kiwify.
 - `TAG_*_ID`: IDs das tags usadas por cada automação.
 - `FLOW_PUP` e `FLOW_EXPIRADO`: identificadores dos flows do ManyChat.
 
